@@ -22,8 +22,15 @@ public class Scanner
             {
                 case 0:
                     //start state
-                    if (s != ' ')
+                    if (s == ':')
+                    {
+                        tokens.Add(buffer.ToString());
+                        buffer.Clear();
+                        state = 1;
+                    } 
+                    else if (s != ' ')
                         buffer.Append(s);
+
                     if (buffer.ToString().Equals("var"))
                     {
                         tokens.Add(buffer.ToString());
@@ -34,7 +41,7 @@ public class Scanner
                     {
                         tokens.Add(buffer.ToString());
                         buffer.Clear();
-                        state = 1;
+                        state = 4;
                     }
                     if (buffer.ToString().Equals("read"))
                     {
@@ -48,90 +55,44 @@ public class Scanner
                         buffer.Clear();
                         state = 1;
                     }
+                    if (buffer.ToString().Equals("endfor;"))
+                    {
+                        tokens.Add("end");
+                        tokens.Add("for");
+                        tokens.Add(";");
+                        buffer.Clear();
+                        state = 0;
+                    }
+                    if (buffer.ToString().Equals("assert"))
+                    {
+                        tokens.Add(buffer.ToString());
+                        buffer.Clear();
+                        state = 4;
+
+                    }
+                    
                     break;
                 case 1:
                     // consume extraspace
+                    //if equal then assertion
                     if (s == ' ')
                     {
                         state = 7;
                     }
-                    break;
-                case 7:
-                    //read variable
-                    if (s == ';')
+                    if (s == '=')
                     {
-                        tokens.Add(buffer.ToString());
-                        tokens.Add(";");
-                        buffer.Clear();
-                        state = 0;
+                        tokens.Add(":=");
+                        state = 4;
                     }
-                    else if (s == '"')
-                    {
-                        tokens.Add("\"");
-                        state = 5;
-                    }
-                    else if (s == ' ')
-                    {
-                        tokens.Add(buffer.ToString());
-                        buffer.Clear();
-                        state = 8;
-                    }
-                    else if (s == '.')
-                    {
-                        tokens.Add(buffer.ToString());
-                        buffer.Clear();
-                        buffer.Append(".");
-                        state = 9;
-                    }
-                    else
-                        buffer.Append(s);
-                    break;
-                case 9:
-                    if (s == '.')
-                    {
-                        buffer.Append(".");
-                        tokens.Add(buffer.ToString());
-                        buffer.Clear();
-                        state=7;
-                    }
-                    break;
-                case 8:
-                // check next after variable
-                    
-                    if (s == ';')
-                    {
-                        tokens.Add(buffer.ToString());
-                        tokens.Add(";");
-                        buffer.Clear();
-                        state = 0;
-                    }
-                    else if (s == ':')
-                    {
-                        tokens.Add(":");
-                        buffer.Clear();
-                        state = 2;
-                    }
-                    else if (buffer.ToString().Equals("in"))
-                    {
-                        tokens.Add("in");
-                        buffer.Clear();
-                        state = 7;
-                    }
-                    else if (buffer.ToString().Equals("do"))
-                    {
-                        tokens.Add("do");
-                        buffer.Clear();
-                        state = 0;
-                    }
-                    else if (s != ' ')
-                        buffer.Append(s);
                     break;
                 case 2:
-                    //read variable type
+                    //read variable type <type>
                     if (s != ' ')
                         buffer.Append(s);
 
-                    if (buffer.ToString().Equals("int"))
+                    if (buffer.ToString().Equals("int")
+                        || buffer.ToString().Equals("string")
+                        || buffer.ToString().Equals("bool"))
                     {
                         tokens.Add(buffer.ToString());
                         buffer.Clear();
@@ -154,21 +115,48 @@ public class Scanner
                     {
                         tokens.Add(buffer.ToString());
                         buffer.Clear();
+                        // read expression
                         state = 4;
                     }
                     break;
                 case 4:
-                    //read integer or math expression
+                    //<expr> := <opnd> <op> <opnd> | [ <unary_opnd> ] <opnd>
+                    //read expression
+
                     if (s == '+')
                     {
                         tokens.Add(buffer.ToString());
                         tokens.Add("+");
                         buffer.Clear();
                     }
+                    else if (s == '-')
+                    {
+                        tokens.Add(buffer.ToString());
+                        tokens.Add("-");
+                        buffer.Clear();
+                    }
                     else if (s == '*')
                     {
                         tokens.Add(buffer.ToString());
                         tokens.Add("*");
+                        buffer.Clear();
+                    }
+                    else if (s == '/')
+                    {
+                        tokens.Add(buffer.ToString());
+                        tokens.Add("/");
+                        buffer.Clear();
+                    }
+                    else if (s == '>')
+                    {
+                        tokens.Add(buffer.ToString());
+                        tokens.Add(">");
+                        buffer.Clear();
+                    }
+                    else if (s == '=')
+                    {
+                        tokens.Add(buffer.ToString());
+                        tokens.Add("=");
                         buffer.Clear();
                     }
                     else if (s == ')')
@@ -182,9 +170,18 @@ public class Scanner
                         tokens.Add("(");
                         buffer.Clear();
                     }
+                    else if (s == '!')
+                    {
+                        tokens.Add("!");
+                        buffer.Clear();
+                    }
+                    else if(s=='\"'){
+                        tokens.Add("\"");
+                        state = 5;
+                    }
                     else if (s == ';')
                     {
-                        if (buffer.Length >0)
+                        if (buffer.Length > 0)
                             tokens.Add(buffer.ToString());
                         tokens.Add(";");
                         buffer.Clear();
@@ -192,6 +189,30 @@ public class Scanner
                     }
                     else if (s != ' ')
                         buffer.Append(s);
+                    if (buffer.ToString().Length >= 2)
+                    {  
+                        //Console.WriteLine(buffer.ToString().Substring(buffer.ToString().Length-2,buffer.ToString().Length-1));
+                        if (buffer.ToString().Substring(buffer.ToString().Length-2, 2).Equals(".."))
+                        {
+                            if (buffer.ToString().Substring(0, buffer.ToString().Length - 2).Length > 0)
+                            {
+                                tokens.Add(buffer.ToString().Substring(0, buffer.ToString().Length - 2));
+                            }
+                            tokens.Add(buffer.ToString().Substring(buffer.ToString().Length-2, 2));
+                            buffer.Clear();
+                        } else if (buffer.ToString().Substring(buffer.ToString().Length-2, 2).Equals("do"))
+                        {
+                            if (buffer.ToString().Substring(0, buffer.ToString().Length - 2).Length > 0)
+                            {
+                                tokens.Add(buffer.ToString().Substring(0, buffer.ToString().Length - 2));
+                            }
+                            tokens.Add(buffer.ToString().Substring(buffer.ToString().Length-2, 2));
+                            buffer.Clear();
+                            state=0;
+                        }
+                    }
+                    
+
                     break;
                 case 5:
                     // reading a string
@@ -208,17 +229,92 @@ public class Scanner
                     break;
                 case 6:
                     // string ends or concatenaiton
-                    if ( s == ';')
+                    if (s == ';')
                     {
                         tokens.Add(";");
                         state = 0;
-                    } else if (s == '+')
+                    }
+                    else if (s == '+')
                     {
                         tokens.Add("+");
-                        state = 1;
+                        state = 5;
                     }
                     break;
-                default:
+                case 7:
+                    //read variable  <var_ident>
+                    if (s == ';')
+                    {
+                        tokens.Add(buffer.ToString());
+                        tokens.Add(";");
+                        buffer.Clear();
+                        state = 0;
+                    }
+                    /*
+                    else if (s == '"')
+                    {
+                        tokens.Add("\"");
+                        state = 5;
+                    }*/
+                    //space end variable name, can you also end it with ':'?
+                    if (s == ' ')
+                    {
+                        tokens.Add(buffer.ToString());
+                        buffer.Clear();
+                        //state 8 check what comes after the variable
+                        state = 8;
+                    }
+                    /*
+                    else if (s == '.')
+                    {
+                        tokens.Add(buffer.ToString());
+                        buffer.Clear();
+                        buffer.Append(".");
+                        state = 9;
+                    }
+                    */
+                    else
+                        buffer.Append(s);
+                    break;
+                case 8:
+                    // check next after variable
+
+                    if (s == ';')
+                    {
+                        tokens.Add(buffer.ToString());
+                        tokens.Add(";");
+                        buffer.Clear();
+                        state = 0;
+                    }
+                    else if (s == ':')
+                    {
+                        tokens.Add(":");
+                        buffer.Clear();
+                        //state 2 checks type
+                        state = 2;
+                    }
+                    else if (buffer.ToString().Equals("in"))
+                    {
+                        tokens.Add("in");
+                        buffer.Clear();
+                        state = 4;
+                    }
+                    else if (buffer.ToString().Equals("do"))
+                    {
+                        tokens.Add("do");
+                        buffer.Clear();
+                        state = 0;
+                    }
+                    else if (s != ' ')
+                        buffer.Append(s);
+                    break;
+                case 9:
+                    if (s == '.')
+                    {
+                        buffer.Append(".");
+                        tokens.Add(buffer.ToString());
+                        buffer.Clear();
+                        state = 7;
+                    }
                     break;
 
             }
@@ -240,10 +336,14 @@ class MainClass
 {
     static int Main(string[] args)
     {
-        //Scanner.ScanString("var nTimes : int := 0;");
+        //Scanner.ScanString("var nTimes : int := !\"asdasd\";");
         //Scanner.ScanString("var X : int := 4 + (6 * 2);");
+        //Scanner.ScanString("muuttuja := \"leet\";");
+        //Scanner.ScanString("read nTimes;");
         //Scanner.ScanString("read nTimes;var x : int;");
-        Scanner.ScanString("for x in 0..nTimes-1 do print x; print \" : Hello, World!\\n\";");
+        //Scanner.ScanString("print x;");
+        //Scanner.ScanString("for x in 1+1..nTimes-1 do print x; print \" : Hello, World!\\n\"; end for;");
+        Scanner.ScanString("assert ((x = nTimes));");
         return -1;
     }
 }
