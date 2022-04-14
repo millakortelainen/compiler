@@ -6,6 +6,7 @@ using System.Text;
 
 public class Scanner
 {
+    //check that everything is written correctly
     List<string> tokens = new List<string> { };
     //Make tokens out of the input string
     public List<string> ScanString(string inputString)
@@ -165,15 +166,6 @@ public class Scanner
             }
 
         }
-
-        //Console.WriteLine(s);
-        //Console.WriteLine("content of buffer:");
-        //Console.WriteLine(buffer);
-        //Console.WriteLine("Content of tokens");
-        //foreach (var t in tokens)
-        //{
-        //    Console.WriteLine(t);
-        //}
         tokens.Add("$$");
         return tokens;
     }
@@ -371,6 +363,8 @@ public class Tree
 
 public class Parser
 {
+    // output a parse tree
+    //check that everything is in correct order
     Tree ParseTree = new Tree();
     int Pointer = 0;
     int NodeCount = -1;
@@ -549,8 +543,6 @@ public class Parser
         }
     }
 
-
-
     public void Opnd(Node from, int level)
     {
         if (Token.Equals(";")) return;
@@ -634,7 +626,6 @@ class SematicAnalyzer
     Tree ParseTree;
     Tree AST = new Tree();
     Dictionary<string, string> SymbolTable = new Dictionary<string, string>();
-    List<string> Stmt = new List<string> { };
     Node LastNode = new Node("program", 0);
     string VarType = "";
     public SematicAnalyzer(Tree parseTree)
@@ -657,80 +648,43 @@ class SematicAnalyzer
 
     public void Walk(Node node)
     {
-        Console.WriteLine(node.Content);
+        //Console.WriteLine("Im currently at:");
+        //Console.WriteLine(node);
+        //Console.WriteLine("last node is");
+        //Console.WriteLine(LastNode);
+        if (!node.GetNeighbours().Any())
+        {
+            return;
+        } else
+        {
+            LastNode = node;
+        }
         if (node.Content.Equals("stmt"))
         {
-            if (node.GetNeighbours()[0].Content.Equals("var"))
-            {
-                SymbolTable.Add(node.GetNeighbours()[1].Content, node.GetNeighbours()[3].Content);
-                VarType = node.GetNeighbours()[3].Content;
-            }
+            ValidityOfStmt(node);
+            return;
         }
         foreach (var n in node.GetNeighbours())
         {
             Walk(n);
         }
-        if (node.Content.Equals("expr"))
-        {
-            if (VarType.Equals("int"))
-            {
-                if (node.GetNeighbours().Count > 1)
-                {
-                    if (node.GetNeighbours()[1].Content.Equals("+"))
-                    {
-                        int number;
-                        bool succ1 = int.TryParse(node.GetNeighbours()[2].Content, out number);
-                        if (!int.TryParse(node.GetNeighbours()[0].Content, out number))
-                        {
-                            Console.WriteLine("fail int parse");
-                            string value = "";
-                            if (SymbolTable.TryGetValue(node.GetNeighbours()[0].Content, out value))
-                            {
-                                Console.WriteLine("variable found");
-                                if (value.Equals(VarType))
-                                {
-                                    Console.WriteLine("OK");
-                                }
-                                else
-                                {
-                                    Console.WriteLine("wrong type");
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine("no such variable");
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    int number;
-                    if (!int.TryParse(node.GetNeighbours()[0].Content, out number))
-                    {
-                        Console.WriteLine("fail int parse");
-                        string value = "";
-                        if (SymbolTable.TryGetValue(node.GetNeighbours()[0].Content, out value))
-                        {
-                            Console.WriteLine("variable found");
-                            if (value.Equals(VarType))
-                            {
-                                Console.WriteLine("OK");
-                            }
-                            else
-                            {
-                                Console.WriteLine("wrong type");
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("no such variable");
-                        }
-                    }
-                }
-            }
+    }
 
+    public Boolean ValidityOfStmt(Node node)
+    {
+        Console.WriteLine("length of stmt");
+        Console.WriteLine(node.GetNeighbours().Count());
+        if (node.GetNeighbours()[0].Content.Equals("var"))
+        {
+            return ValidityOfVariableDeclaration(node) && node.GetNeighbours().Last().Content.Equals(";");
         }
+        return true;
+    }
+
+    public Boolean ValidityOfVariableDeclaration(Node node)
+    {
+        SymbolTable.Add(node.GetNeighbours()[1].Content, node.GetNeighbours()[3].Content);
+        return true;
     }
 
     public Tree GetAST() { return ParseTree; }
@@ -756,11 +710,6 @@ class Compile
     public void Execute()
     {
         Walk(AST.GetRoot());
-        foreach (KeyValuePair<string, object> kvp in Values)
-        {
-            Console.WriteLine("Key = {0}, Value = {1}",
-                kvp.Key, kvp.Value);
-        }
 
     }
 
@@ -832,7 +781,6 @@ class Compile
         {
             if (node.GetNeighbours().Count > 4)
             {
-                Console.WriteLine("pöö");
                 if (SymbolTable[node.GetNeighbours()[1].Content].Equals("int"))
                     Values.Add(node.GetNeighbours()[1].Content, ResolveMathExpr(node.GetNeighbours()[5]));
             }
@@ -851,32 +799,29 @@ class MainClass
     {
         //string str = "assert (x = nTimes);";
         //string str = "for x in 1+1..nTimes-1 do print x; print \" : Hello, World!\\n\"; end for;";
-        string str = "var n : int := 2;var m : int := n+(1+1);";
+        //string str = "var nTimes : int"
+        //string str = "var nTimes : int := !\"asdasd\";";
+        //string str = "var X : int := 4 + (6 * 2);";
+        //string str = "read nTimes;read nTimes;read nTimes;read nTimes;";
+        //string str = "read nTimes;var x : int;";
+        //string str = "print x;";
+        //string str = "assert (x = nTimes);";
+        string str = "var nTimes : int := (3+6)+id;";
+        //string str = "var n : int := 2;var m : int := n+(1+1);";
+        string prog1 = "var X : int := 4; print X;";
+        //example programs
+        //string prog1 = "var X : int := 4 + (6 * 2); print X;";
+        string prog2 = "var nTimes : int = 0; print \"How many times?\"; read nTimes; var x : int; for x in 0..nTimes-1 do    print x;    print \" : Hello, World!\n\" ; end for; assert (x = nTimes);";
+        string prog3 = "print \"Give a number \" var n : int; read n; var v : int := 1; var i : int; for i in i..n do    v := v * i; end for; print \"The result is: \" ; print v;";
+        
         Scanner scanner = new Scanner();
-        Parser parser = new Parser(scanner.ScanString(str));
-        //scanner.ScanString("var nTimes : int;");
-        //Scanner.ScanString("var nTimes : int := !\"asdasd\";");
-        //Scanner.ScanString("var X : int := 4 + (6 * 2);");
-        //Scanner.ScanString("read nTimes;read nTimes;read nTimes;read nTimes;");
-        //Scanner.ScanString("read nTimes;var x : int;");
-        //Scanner.ScanString("print x;");
-        //Scanner.ScanString("assert (x = nTimes);");
-        //scanner.ScanString("var nTimes : int := (3+6)+id;");
-        //Console.WriteLine(scanner);
-        //Console.WriteLine(parser.ParseTokens());
+        Parser parser = new Parser(scanner.ScanString(prog1));
         SematicAnalyzer SA = new SematicAnalyzer(parser.ParseTokens());
         SA.SematicAnalyze();
-        foreach (var e in SA.GetAST().Edges)
-        {
-            Console.WriteLine(e);
-        }
-        Console.WriteLine("symbtble:");
-        foreach (KeyValuePair<string, string> kvp in SA.GetSymbolTable())
-        {
-            Console.WriteLine(kvp.Key + ":" + kvp.Value);
-        }
-        Compile compiler = new Compile(SA.GetAST(), SA.GetSymbolTable());
-        compiler.Execute();
+        //SematicAnalyzer SA = new SematicAnalyzer(parser.ParseTokens());
+        //SA.SematicAnalyze();
+        //Compile compiler = new Compile(SA.GetAST(), SA.GetSymbolTable());
+        //compiler.Execute();
         return -1;
     }
 }
