@@ -66,7 +66,9 @@ public class Scanner
                         state = Start(buffer, ";");
                     //space end variable name, can you also end it with ':'?
                     else if (s == ' ' && buffer.ToString().Length > 0)
+                    {
                         state = AfterVarIdent(buffer);
+                    }
                     else if (s != ' ')
                         buffer.Append(s);
                     break;
@@ -121,6 +123,8 @@ public class Scanner
                     break;
                 case 5:
                     // reading a string
+                    //Console.WriteLine(buffer.ToString().Length);
+                    //Console.WriteLine(buffer.ToString());
                     if (s == '\"')
                     {
                         tokens.Add(buffer.ToString());
@@ -133,7 +137,7 @@ public class Scanner
 
                     break;
                 case 6:
-                    // string ends or concatenaiton
+                    // string ends or concatenaiton or string expr ended
                     if (s == ';')
                     {
                         tokens.Add(";");
@@ -142,7 +146,12 @@ public class Scanner
                     else if (s == '+')
                     {
                         tokens.Add("+");
-                        state = 5;
+                        state = 9;
+                    }
+                    else if (s == ')')
+                    {
+                        tokens.Add(")");
+                        state = 6;
                     }
                     break;
                 case 8:
@@ -151,8 +160,10 @@ public class Scanner
                         state = Start(buffer, ";");
 
                     else if (s == ':')
+                    {
+                        //Console.WriteLine("type dec");
                         state = Type(buffer);
-
+                    }
                     else if (buffer.ToString().Equals("in"))
                         state = Expr(buffer, "in");
 
@@ -162,6 +173,13 @@ public class Scanner
                     else if (s != ' ')
                         buffer.Append(s);
 
+                    break;
+                case 9:
+                    if (s=='\"')
+                    {
+                        tokens.Add("\"");
+                        state = 5;
+                    }
                     break;
             }
 
@@ -655,7 +673,8 @@ class SematicAnalyzer
         if (!node.GetNeighbours().Any())
         {
             return;
-        } else
+        }
+        else
         {
             LastNode = node;
         }
@@ -674,16 +693,270 @@ class SematicAnalyzer
     {
         Console.WriteLine("length of stmt");
         Console.WriteLine(node.GetNeighbours().Count());
+        Console.WriteLine("stmt stucture");
+        foreach (var item in node.GetNeighbours())
+        {
+            Console.WriteLine(item);
+        }
+        Console.WriteLine("stmt struc end");
+
         if (node.GetNeighbours()[0].Content.Equals("var"))
         {
             return ValidityOfVariableDeclaration(node) && node.GetNeighbours().Last().Content.Equals(";");
+        }
+
+        return true;
+    }
+
+    public Boolean ParseInteger(string variable)
+    {
+        if (SymbolTable.ContainsKey(variable))
+        {
+            if (SymbolTable[variable].Equals("int"))
+            {
+                return true;
+            }
+        }
+        else
+        {
+            int number;
+            bool success = int.TryParse(variable, out number);
+            return success;
+        }
+        return false;
+    }
+
+    public Boolean CheckStringExists(string variable)
+    {
+        if (SymbolTable.ContainsKey(variable))
+        {
+            if (SymbolTable[variable].Equals("string"))
+            {
+                Console.WriteLine("string pass");
+                return true;
+            }
+            else
+            {
+                Console.WriteLine("Wrong type");
+                return false;
+            }
+        }
+        else
+        {
+            Console.WriteLine("Variable doesn't exist");
+            return false;
+        }
+    }
+
+    public Boolean ParseString(List<Node> exprParts, int startIndex)
+    {
+        if (exprParts[startIndex].Content.Equals("\"") && exprParts[startIndex + 2].Content.Equals("\""))
+        {
+            Console.WriteLine("string pass");
+            return true;
+        }
+        Console.WriteLine("bad definition of string");
+        return false;
+    }
+
+    public Boolean PassString(List<Node> exprParts, int startIndex, int endIndex)
+    {
+        if (startIndex == endIndex)
+        {
+            return CheckStringExists(exprParts[startIndex].Content);
+        }
+        else
+        {
+            if (exprParts[startIndex].Content.Equals("\"") && exprParts[endIndex].Content.Equals("\""))
+            {
+                Console.WriteLine("string pass");
+                return true;
+            }
+            if (exprParts[startIndex + 1].Content.Equals("expr"))
+            {
+                return ValidityOfExpr(exprParts[startIndex + 1], "string");
+            }
+            return false;
+        }
+    }
+    public Boolean ValidityOfExpr(Node node, string typeOf)
+    {
+        Console.WriteLine("hello");
+        foreach (var item in node.GetNeighbours())
+        {
+            Console.WriteLine(item);
+        }
+        List<Node> exprParts = node.GetNeighbours();
+        int numberOfParts = exprParts.Count();
+        //Console.WriteLine(typeOf);
+        Console.WriteLine(node.GetNeighbours().Count());
+        //expr should resolve to required type
+        if (typeOf.Equals("int"))
+        {
+            if (numberOfParts == 1)
+            {
+                //just assignment
+                if (ParseInteger(node.GetNeighbours()[0].Content))
+                {
+                    Console.WriteLine($"Conversion passed {node.GetNeighbours()[0].Content}");
+                    return true;
+                }
+                else
+                {
+                    Console.WriteLine($"Attempted conversion of {node.GetNeighbours()[0].Content} failed.");
+                    return false;
+                }
+            }
+            else if (numberOfParts == 2)
+            {
+                //unary assignment
+                Console.WriteLine("Unary assignment is not supported for int type");
+            }
+            else if (numberOfParts == 3)
+            {
+                //!! This can be also be (expr)
+                //simple expression that needs to be resolved
+                string operand = node.GetNeighbours()[1].Content;
+                if (operand.Equals("+")
+                    || operand.Equals("*")
+                    || operand.Equals("-")
+                    || operand.Equals("/"))
+                {
+                    //try to parse left and right to integers
+                    if (ParseInteger(node.GetNeighbours()[0].Content) && ParseInteger(node.GetNeighbours()[2].Content))
+                    {
+                        Console.WriteLine($"Conversion passed {node.GetNeighbours()[0].Content} {node.GetNeighbours()[1].Content} {node.GetNeighbours()[2].Content}");
+                        return true;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Attempted conversion of {node.GetNeighbours()[0].Content} {node.GetNeighbours()[1].Content} {node.GetNeighbours()[2].Content} failed.");
+                        return false;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Operation not supported");
+                }
+            }
+            else if (numberOfParts == 5)
+            {
+                //expression left or right side
+                if (exprParts[1].Content.Equals("expr"))
+                {
+                    //left side is expr
+                    Console.WriteLine("left");
+                    if (ValidityOfExpr(exprParts[1], typeOf) && ParseInteger(exprParts[4].Content))
+                    {
+                        Console.WriteLine($"Passed ");
+                        return true;
+                    }
+                    else
+                    {
+                        Console.WriteLine("No pass");
+                        return false;
+                    }
+                }
+                if (exprParts[3].Content.Equals("expr"))
+                {
+                    //right side is expr
+                    Console.WriteLine("right");
+                    if (ValidityOfExpr(exprParts[3], typeOf) && ParseInteger(exprParts[0].Content))
+                    {
+                        Console.WriteLine("Passed");
+                        return true;
+                    }
+                    else
+                    {
+                        Console.WriteLine("No pass");
+                        return false;
+                    }
+                }
+
+            }
+            else if (numberOfParts == 7)
+            {
+                //expression both sides
+                if (ValidityOfExpr(exprParts[1], typeOf) && ValidityOfExpr(exprParts[5], typeOf))
+                {
+                    Console.WriteLine("Passed both expr");
+                    return true;
+                }
+                else
+                {
+                    Console.WriteLine("not passed both expr");
+                    return false;
+                }
+            }
+            else
+            {
+                Console.WriteLine("Not supported");
+                return false;
+            }
+
+        }
+        if (typeOf.Equals("string"))
+        {
+            //check for string concatenation
+            int operationIndex = -1;
+            for (int i = 0; i < numberOfParts; i++)
+            {
+                if (exprParts[i].Content.Equals("+"))
+                {
+                    //we have a concatenation
+                    operationIndex = i;
+                    break;
+                }
+            }
+            //concatenation can consist of var indeces, exprs or pure strings
+            if (operationIndex == -1)
+            {
+                //no concatenation
+                if (numberOfParts == 1)
+                {
+                    return CheckStringExists(exprParts[0].Content);
+                }
+                if (numberOfParts == 3)
+                {
+                    // i can also be expr
+                    return ParseString(exprParts, 0);
+                }
+            }
+            else
+            {
+                return PassString(exprParts, 0, operationIndex - 1) && PassString(exprParts, operationIndex + 1, exprParts.Count() - 1);
+            }
+
+
+        }
+        if (typeOf.Equals("bool"))
+        {
+            
+        }
+        //if the type isn't given, structure of the expr (operand) will determine the type of the expr
+        return true;
+    }
+
+    public Boolean ValidityOfIdRef(Node node)
+    {
+        if (!SymbolTable.ContainsKey(node.GetNeighbours()[0].Content))
+        {
+            return false;
         }
         return true;
     }
 
     public Boolean ValidityOfVariableDeclaration(Node node)
     {
+        //foreach (var item in node.GetNeighbours())
+        //{
+        //    Console.WriteLine(item);
+        //}
         SymbolTable.Add(node.GetNeighbours()[1].Content, node.GetNeighbours()[3].Content);
+        if (node.GetNeighbours().Count() > 5)
+        {
+            ValidityOfExpr(node.GetNeighbours()[5], SymbolTable[node.GetNeighbours()[1].Content]);
+        }
         return true;
     }
 
@@ -808,12 +1081,13 @@ class MainClass
         //string str = "assert (x = nTimes);";
         string str = "var nTimes : int := (3+6)+id;";
         //string str = "var n : int := 2;var m : int := n+(1+1);";
-        string prog1 = "var X : int := 4; print X;";
+        //string prog1 = "var id : int; var X : int := id + 9; print X;";
+        string prog1 = "var str : string := (\"a\" + \"b\") + \"c\" ;";
         //example programs
         //string prog1 = "var X : int := 4 + (6 * 2); print X;";
         string prog2 = "var nTimes : int = 0; print \"How many times?\"; read nTimes; var x : int; for x in 0..nTimes-1 do    print x;    print \" : Hello, World!\n\" ; end for; assert (x = nTimes);";
         string prog3 = "print \"Give a number \" var n : int; read n; var v : int := 1; var i : int; for i in i..n do    v := v * i; end for; print \"The result is: \" ; print v;";
-        
+
         Scanner scanner = new Scanner();
         Parser parser = new Parser(scanner.ScanString(prog1));
         SematicAnalyzer SA = new SematicAnalyzer(parser.ParseTokens());
